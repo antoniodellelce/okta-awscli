@@ -23,8 +23,6 @@ setup(
         'bs4',
         'boto3',
         'ConfigParser',
-        ],
-    extras_require={
-        'U2F': ['python-u2flib-host']
-    },
+    ],
+    extras_require={'U2F': ['python-u2flib-host']},
 )

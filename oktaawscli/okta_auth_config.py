@@ -10,6 +10,7 @@ try:
 except NameError:
     pass
 
+
 class OktaAuthConfig():
     """ Config helper class """
     def __init__(self, logger):
@@ -25,9 +26,8 @@ class OktaAuthConfig():
             self.logger.info("Authenticating to: %s" % base_url)
         elif self._value.has_option('default', 'base-url'):
             base_url = self._value.get('default', 'base-url')
-            self.logger.info(
-                "Using base-url from default profile %s" % base_url
-            )
+            self.logger.info("Using base-url from default profile %s" %
+                             base_url)
         else:
             self.logger.error(
                 "No profile found. Please define a default profile, or specify a named profile using `--okta-profile`"
@@ -74,16 +74,12 @@ class OktaAuthConfig():
         """ Gets requested duration from config, ignore it on failure """
         if self._value.has_option(okta_profile, 'duration'):
             duration = self._value.get(okta_profile, 'duration')
-            self.logger.debug(
-                "Requesting a duration of %s seconds" % duration
-            )
+            self.logger.debug("Requesting a duration of %s seconds" % duration)
             try:
                 return int(duration)
             except ValueError as e:
-                self.logger.warn(
-                    "Duration could not be converted to a number,"
-                    " ignoring."
-                )
+                self.logger.warn("Duration could not be converted to a number,"
+                                 " ignoring.")
         return None
 
     def save_chosen_role_for_profile(self, okta_profile, role_arn):

@@ -23,9 +23,11 @@ try:
 except NameError:
     pass
 
+
 class OktaAuth():
     """ Handles auth to Okta and returns SAML assertion """
-    def __init__(self, okta_profile, verbose, logger, totp_token, okta_auth_config):
+    def __init__(self, okta_profile, verbose, logger, totp_token,
+                 okta_auth_config):
         self.okta_profile = okta_profile
         self.totp_token = totp_token
         self.logger = logger
@@ -34,7 +36,8 @@ class OktaAuth():
         self._verify_ssl_certs = True
         self._preferred_mfa_type = None
         self._mfa_code = None
-        self.https_base_url = "https://%s" % okta_auth_config.base_url_for(okta_profile)
+        self.https_base_url = "https://%s" % okta_auth_config.base_url_for(
+            okta_profile)
         self.username = okta_auth_config.username_for(okta_profile)
         self.password = okta_auth_config.password_for(okta_profile)
         self.factor = okta_auth_config.factor_for(okta_profile)
@@ -47,12 +50,10 @@ class OktaAuth():
     def primary_auth(self):
         """ Performs primary auth against Okta """
 
-        auth_data = {
-            "username": self.username,
-            "password": self.password
-        }
+        auth_data = {"username": self.username, "password": self.password}
         self.session = requests.Session()
-        resp = self.session.post(self.https_base_url + '/api/v1/authn', json=auth_data)
+        resp = self.session.post(self.https_base_url + '/api/v1/authn',
+                                 json=auth_data)
         resp_json = resp.json()
         self.cookies = resp.cookies
         if 'status' in resp_json:
@@ -73,7 +74,6 @@ Please enroll an MFA factor in the Okta Web UI first!""")
             self.logger.error(resp_json)
             exit(1)
 
-
         return session_token
 
     def verify_mfa(self, factors_list, state_token):
@@ -89,15 +89,14 @@ Please enroll an MFA factor in the Okta Web UI first!""")
                 supported_factors.append(factor)
             else:
                 self.logger.error("Unsupported factorType: %s" %
-                                 (factor['factorType'],))
+                                  (factor['factorType'], ))
 
         supported_factors = sorted(supported_factors,
-                                   key=lambda factor: (
-                                       factor['provider'],
-                                       factor['factorType']))
+                                   key=lambda factor:
+                                   (factor['provider'], factor['factorType']))
         if len(supported_factors) == 1:
-            session_token = self.verify_single_factor(
-                supported_factors[0], state_token)
+            session_token = self.verify_single_factor(supported_factors[0],
+                                                      state_token)
         elif len(supported_factors) > 0:
             if not self.factor:
                 print("Registered MFA factors:")
@@ -113,7 +112,7 @@ Please enroll an MFA factor in the Okta Web UI first!""")
                     else:
                         factor_name = "Okta Verify"
                 elif factor_provider == "FIDO":
-                        factor_name = "u2f"
+                    factor_name = "u2f"
                 else:
                     factor_name = "Unsupported factor type: %s" % factor_provider
 
@@ -126,11 +125,12 @@ Please enroll an MFA factor in the Okta Web UI first!""")
                 else:
                     print("%d: %s" % (index + 1, factor_name))
             if not self.factor:
-                factor_choice = int(input('Please select the MFA factor: ')) - 1
+                factor_choice = int(
+                    input('Please select the MFA factor: ')) - 1
             self.logger.info("Performing secondary authentication using: %s" %
                              supported_factors[factor_choice]['provider'])
-            session_token = self.verify_single_factor(supported_factors[factor_choice],
-                                                      state_token)
+            session_token = self.verify_single_factor(
+                supported_factors[factor_choice], state_token)
         else:
             print("MFA required, but no supported factors enrolled! Exiting.")
             exit(1)
@@ -138,9 +138,7 @@ Please enroll an MFA factor in the Okta Web UI first!""")
 
     def verify_single_factor(self, factor, state_token):
         """ Verifies a single MFA factor """
-        req_data = {
-            "stateToken": state_token
-        }
+        req_data = {"stateToken": state_token}
 
         self.logger.debug(factor)
         if factor['factorType'] == 'token:software:totp':
@@ -156,11 +154,12 @@ Please enroll an MFA factor in the Okta Web UI first!""")
         if 'status' in resp_json:
             if resp_json['status'] == "SUCCESS":
                 return resp_json['sessionToken']
-            elif resp_json['status'] == "MFA_CHALLENGE" and factor['factorType'] !='u2f':
+            elif resp_json['status'] == "MFA_CHALLENGE" and factor[
+                    'factorType'] != 'u2f':
                 print("Waiting for push verification...")
                 while True:
-                    resp = requests.post(
-                        resp_json['_links']['next']['href'], json=req_data)
+                    resp = requests.post(resp_json['_links']['next']['href'],
+                                         json=req_data)
                     resp_json = resp.json()
                     if resp_json['status'] == 'SUCCESS':
                         return resp_json['sessionToken']
@@ -180,10 +179,14 @@ Please enroll an MFA factor in the Okta Web UI first!""")
                     exit(1)
 
                 challenge = dict()
-                challenge['appId'] = resp_json['_embedded']['factor']['profile']['appId']
-                challenge['version'] = resp_json['_embedded']['factor']['profile']['version']
-                challenge['keyHandle'] = resp_json['_embedded']['factor']['profile']['credentialId']
-                challenge['challenge'] = resp_json['_embedded']['factor']['_embedded']['challenge']['nonce']
+                challenge['appId'] = resp_json['_embedded']['factor'][
+                    'profile']['appId']
+                challenge['version'] = resp_json['_embedded']['factor'][
+                    'profile']['version']
+                challenge['keyHandle'] = resp_json['_embedded']['factor'][
+                    'profile']['credentialId']
+                challenge['challenge'] = resp_json['_embedded']['factor'][
+                    '_embedded']['challenge']['nonce']
 
                 print("Please touch your U2F device...")
                 auth_response = None
@@ -191,17 +194,23 @@ Please enroll an MFA factor in the Okta Web UI first!""")
                     for device in devices:
                         with device as dev:
                             try:
-                                auth_response = u2f.authenticate(dev, challenge, resp_json['_embedded']['factor']['profile']['appId'] )
+                                auth_response = u2f.authenticate(
+                                    dev, challenge, resp_json['_embedded']
+                                    ['factor']['profile']['appId'])
                                 req_data.update(auth_response)
-                                resp = requests.post(resp_json['_links']['next']['href'], json=req_data)
+                                resp = requests.post(
+                                    resp_json['_links']['next']['href'],
+                                    json=req_data)
                                 resp_json = resp.json()
                                 if resp_json['status'] == 'SUCCESS':
                                     return resp_json['sessionToken']
                                 elif resp_json['factorResult'] == 'TIMEOUT':
-                                    self.logger.warning("Verification timed out")
+                                    self.logger.warning(
+                                        "Verification timed out")
                                     exit(1)
                                 elif resp_json['factorResult'] == 'REJECTED':
-                                    self.logger.warning("Verification was rejected")
+                                    self.logger.warning(
+                                        "Verification was rejected")
                                     exit(1)
                             except exc.APDUError as e:
                                 if e.code == APDU_WRONG_DATA:
@@ -219,17 +228,17 @@ Please enroll an MFA factor in the Okta Web UI first!""")
     def get_session(self, session_token):
         """ Gets a session cookie from a session token """
         data = {"sessionToken": session_token}
-        resp = self.session.post(
-            self.https_base_url + '/api/v1/sessions', json=data).json()
+        resp = self.session.post(self.https_base_url + '/api/v1/sessions',
+                                 json=data).json()
         return resp['id']
 
     def get_apps(self, session_id):
         """ Gets apps for the user """
         sid = "sid=%s" % session_id
         headers = {'Cookie': sid}
-        resp = self.session.get(
-            self.https_base_url + '/api/v1/users/me/appLinks',
-            headers=headers).json()
+        resp = self.session.get(self.https_base_url +
+                                '/api/v1/users/me/appLinks',
+                                headers=headers).json()
         aws_apps = []
         for app in resp:
             if app['appName'] == "amazon_aws":
@@ -261,8 +270,11 @@ Please enroll an MFA factor in the Okta Web UI first!""")
 
     def get_mfa_assertion(self, html):
         soup = bs(html.text, "html.parser")
-        if hasattr(soup.title, 'string') and re.match(".* - Extra Verification$", soup.title.string):
-            state_token = decode(re.search(r"var stateToken = '(.*)';", html.text).group(1), "unicode-escape")
+        if hasattr(soup.title, 'string') and re.match(
+                ".* - Extra Verification$", soup.title.string):
+            state_token = decode(
+                re.search(r"var stateToken = '(.*)';", html.text).group(1),
+                "unicode-escape")
         else:
             self.logger.error("No Extra Verification")
             return None
@@ -272,14 +284,16 @@ Please enroll an MFA factor in the Okta Web UI first!""")
         self.session.cookies['Okta_Verify_Autopush_2012557501'] = 'true'
         self.session.cookies['Okta_Verify_Autopush_-610254449'] = 'true'
 
-        api_response = self.stepup_auth(self.https_base_url + '/api/v1/authn', state_token)
+        api_response = self.stepup_auth(self.https_base_url + '/api/v1/authn',
+                                        state_token)
         resp = self.session.get(self.app_link)
 
         return self.get_saml_assertion(resp)
 
     def get_saml_assertion(self, html):
         """ Returns the SAML assertion from HTML """
-        assertion = self.get_simple_assertion(html) or self.get_mfa_assertion(html)
+        assertion = self.get_simple_assertion(html) or self.get_mfa_assertion(
+            html)
 
         if not assertion:
             self.logger.error("SAML assertion not valid: " + assertion)
@@ -291,24 +305,28 @@ Please enroll an MFA factor in the Okta Web UI first!""")
         flow_state = self._get_initial_flow_state(embed_link, state_token)
 
         while flow_state.get('apiResponse').get('status') != 'SUCCESS':
-            flow_state = self._next_login_step(
-                flow_state.get('stateToken'), flow_state.get('apiResponse'))
+            flow_state = self._next_login_step(flow_state.get('stateToken'),
+                                               flow_state.get('apiResponse'))
 
         return flow_state['apiResponse']
 
     def _next_login_step(self, state_token, login_data):
         """ decide what the next step in the login process is"""
         if 'errorCode' in login_data:
-            self.logger.error("LOGIN ERROR: {} | Error Code: {}".format(login_data['errorSummary'], login_data['errorCode']))
+            self.logger.error("LOGIN ERROR: {} | Error Code: {}".format(
+                login_data['errorSummary'], login_data['errorCode']))
             exit(2)
 
         status = login_data['status']
 
         if status == 'UNAUTHENTICATED':
-            self.logger.error("You are not authenticated -- please try to log in again")
+            self.logger.error(
+                "You are not authenticated -- please try to log in again")
             exit(2)
         elif status == 'LOCKED_OUT':
-            self.logger.error("Your Okta access has been locked out due to failed login attempts.")
+            self.logger.error(
+                "Your Okta access has been locked out due to failed login attempts."
+            )
             exit(2)
         elif status == 'MFA_ENROLL':
             self.logger.error("You must enroll in MFA before using this tool.")
@@ -316,28 +334,26 @@ Please enroll an MFA factor in the Okta Web UI first!""")
         elif status == 'MFA_REQUIRED':
             return self._login_multi_factor(state_token, login_data)
         elif status == 'MFA_CHALLENGE':
-            if 'factorResult' in login_data and login_data['factorResult'] == 'WAITING':
+            if 'factorResult' in login_data and login_data[
+                    'factorResult'] == 'WAITING':
                 return self._check_push_result(state_token, login_data)
             else:
-                return self._login_input_mfa_challenge(state_token, login_data['_links']['next']['href'])
+                return self._login_input_mfa_challenge(
+                    state_token, login_data['_links']['next']['href'])
         else:
             raise RuntimeError('Unknown login status: ' + status)
-
 
     def _get_initial_flow_state(self, embed_link, state_token=None):
         """ Starts the authentication flow with Okta"""
         if state_token is None:
-            response = self.session.get(
-                embed_link, allow_redirects=False)
+            response = self.session.get(embed_link, allow_redirects=False)
             url_parse_results = urlparse(response.headers['Location'])
             state_token = parse_qs(url_parse_results.query)['stateToken'][0]
 
-        response = self.session.post(
-            self.https_base_url + '/api/v1/authn',
-            json={'stateToken': state_token},
-            headers=self._get_headers(),
-            verify=self._verify_ssl_certs
-        )
+        response = self.session.post(self.https_base_url + '/api/v1/authn',
+                                     json={'stateToken': state_token},
+                                     headers=self._get_headers(),
+                                     verify=self._verify_ssl_certs)
 
         return {'stateToken': state_token, 'apiResponse': response.json()}
 
@@ -354,7 +370,8 @@ Please enroll an MFA factor in the Okta Web UI first!""")
         self.session_id = self.get_session(self.session_token)
         if not self.app_link:
             app_name, self.app_link = self.get_apps(self.session_id)
-            self.okta_auth_config.save_chosen_app_link_for_profile(self.okta_profile, self.app_link)
+            self.okta_auth_config.save_chosen_app_link_for_profile(
+                self.okta_profile, self.app_link)
         else:
             app_name = None
         self.session.cookies['sid'] = self.session_id
@@ -364,55 +381,71 @@ Please enroll an MFA factor in the Okta Web UI first!""")
 
     def _login_send_sms(self, state_token, factor):
         """ Send SMS message for second factor authentication"""
-        response = self.session.post(
-            factor['_links']['verify']['href'],
-            json={'stateToken': state_token},
-            headers=self._get_headers(),
-            verify=self._verify_ssl_certs
-        )
+        response = self.session.post(factor['_links']['verify']['href'],
+                                     json={'stateToken': state_token},
+                                     headers=self._get_headers(),
+                                     verify=self._verify_ssl_certs)
 
-        self.logger.info("A verification code has been sent to " + factor['profile']['phoneNumber'])
+        self.logger.info("A verification code has been sent to " +
+                         factor['profile']['phoneNumber'])
         response_data = response.json()
 
         if 'stateToken' in response_data:
-            return {'stateToken': response_data['stateToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': response_data['stateToken'],
+                'apiResponse': response_data
+            }
         if 'sessionToken' in response_data:
-            return {'stateToken': None, 'sessionToken': response_data['sessionToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': None,
+                'sessionToken': response_data['sessionToken'],
+                'apiResponse': response_data
+            }
 
     def _login_send_call(self, state_token, factor):
         """ Send Voice call for second factor authentication"""
-        response = self.session.post(
-            factor['_links']['verify']['href'],
-            json={'stateToken': state_token},
-            headers=self._get_headers(),
-            verify=self._verify_ssl_certs
-        )
+        response = self.session.post(factor['_links']['verify']['href'],
+                                     json={'stateToken': state_token},
+                                     headers=self._get_headers(),
+                                     verify=self._verify_ssl_certs)
 
-        self.logger.info("You should soon receive a phone call at " + factor['profile']['phoneNumber'])
+        self.logger.info("You should soon receive a phone call at " +
+                         factor['profile']['phoneNumber'])
         response_data = response.json()
 
         if 'stateToken' in response_data:
-            return {'stateToken': response_data['stateToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': response_data['stateToken'],
+                'apiResponse': response_data
+            }
         if 'sessionToken' in response_data:
-            return {'stateToken': None, 'sessionToken': response_data['sessionToken'], 'apiResponse': response_data}
-
+            return {
+                'stateToken': None,
+                'sessionToken': response_data['sessionToken'],
+                'apiResponse': response_data
+            }
 
     def _login_send_push(self, state_token, factor):
         """ Send 'push' for the Okta Verify mobile app """
-        response = self.session.post(
-            factor['_links']['verify']['href'],
-            json={'stateToken': state_token},
-            headers=self._get_headers(),
-            verify=self._verify_ssl_certs
-        )
+        response = self.session.post(factor['_links']['verify']['href'],
+                                     json={'stateToken': state_token},
+                                     headers=self._get_headers(),
+                                     verify=self._verify_ssl_certs)
 
         self.logger.info("Okta Verify push sent...")
         response_data = response.json()
 
         if 'stateToken' in response_data:
-            return {'stateToken': response_data['stateToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': response_data['stateToken'],
+                'apiResponse': response_data
+            }
         if 'sessionToken' in response_data:
-            return {'stateToken': None, 'sessionToken': response_data['sessionToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': None,
+                'sessionToken': response_data['sessionToken'],
+                'apiResponse': response_data
+            }
 
     def _login_multi_factor(self, state_token, login_data):
         """ handle multi-factor authentication with Okta"""
@@ -422,48 +455,67 @@ Please enroll an MFA factor in the Okta Web UI first!""")
         elif factor['factorType'] == 'call':
             return self._login_send_call(state_token, factor)
         elif factor['factorType'] == 'token:software:totp':
-            return self._login_input_mfa_challenge(state_token, factor['_links']['verify']['href'])
+            return self._login_input_mfa_challenge(
+                state_token, factor['_links']['verify']['href'])
         elif factor['factorType'] == 'token':
-            return self._login_input_mfa_challenge(state_token, factor['_links']['verify']['href'])
+            return self._login_input_mfa_challenge(
+                state_token, factor['_links']['verify']['href'])
         elif factor['factorType'] == 'push':
             return self._login_send_push(state_token, factor)
 
     def _login_input_mfa_challenge(self, state_token, next_url):
         """ Submit verification code for SMS or TOTP authentication methods"""
-        pass_code = self._mfa_code;
+        pass_code = self._mfa_code
         if pass_code is None:
             pass_code = input("Enter verification code: ")
-        response = self.session.post(
-            next_url,
-            json={'stateToken': state_token, 'passCode': pass_code},
-            headers=self._get_headers(),
-            verify=self._verify_ssl_certs
-        )
+        response = self.session.post(next_url,
+                                     json={
+                                         'stateToken': state_token,
+                                         'passCode': pass_code
+                                     },
+                                     headers=self._get_headers(),
+                                     verify=self._verify_ssl_certs)
 
         response_data = response.json()
         if 'status' in response_data and response_data['status'] == 'SUCCESS':
             if 'stateToken' in response_data:
-                return {'stateToken': response_data['stateToken'], 'apiResponse': response_data}
+                return {
+                    'stateToken': response_data['stateToken'],
+                    'apiResponse': response_data
+                }
             if 'sessionToken' in response_data:
-                return {'stateToken': None, 'sessionToken': response_data['sessionToken'], 'apiResponse': response_data}
+                return {
+                    'stateToken': None,
+                    'sessionToken': response_data['sessionToken'],
+                    'apiResponse': response_data
+                }
         else:
-            return {'stateToken': None, 'sessionToken': None, 'apiResponse': response_data}
+            return {
+                'stateToken': None,
+                'sessionToken': None,
+                'apiResponse': response_data
+            }
 
     def _check_push_result(self, state_token, login_data):
         """ Check Okta API to see if the push request has been responded to"""
         time.sleep(1)
-        response = self.session.post(
-            login_data['_links']['next']['href'],
-            json={'stateToken': state_token},
-            headers=self._get_headers(),
-            verify=self._verify_ssl_certs
-        )
+        response = self.session.post(login_data['_links']['next']['href'],
+                                     json={'stateToken': state_token},
+                                     headers=self._get_headers(),
+                                     verify=self._verify_ssl_certs)
 
         response_data = response.json()
         if 'stateToken' in response_data:
-            return {'stateToken': response_data['stateToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': response_data['stateToken'],
+                'apiResponse': response_data
+            }
         if 'sessionToken' in response_data:
-            return {'stateToken': None, 'sessionToken': response_data['sessionToken'], 'apiResponse': response_data}
+            return {
+                'stateToken': None,
+                'sessionToken': response_data['sessionToken'],
+                'apiResponse': response_data
+            }
 
     def _choose_factor(self, factors):
         """ gets a list of available authentication factors and
@@ -473,7 +525,10 @@ Please enroll an MFA factor in the Okta Web UI first!""")
 
         # filter the factor list down to just the types specified in preferred_mfa_type
         if self._preferred_mfa_type is not None:
-            factors = list(filter(lambda item: item['factorType'] == self._preferred_mfa_type, factors))
+            factors = list(
+                filter(
+                    lambda item: item['factorType'] == self.
+                    _preferred_mfa_type, factors))
 
         if len(factors) == 1:
             factor_name = self._build_factor_name(factors[0])
@@ -499,14 +554,19 @@ Please enroll an MFA factor in the Okta Web UI first!""")
     def _build_factor_name(factor):
         """ Build the display name for a MFA factor based on the factor type"""
         if factor['factorType'] == 'push':
-            return "Okta Verify App: " + factor['profile']['deviceType'] + ": " + factor['profile']['name']
+            return "Okta Verify App: " + factor['profile'][
+                'deviceType'] + ": " + factor['profile']['name']
         elif factor['factorType'] == 'sms':
-            return factor['factorType'] + ": " + factor['profile']['phoneNumber']
+            return factor['factorType'] + ": " + factor['profile'][
+                'phoneNumber']
         elif factor['factorType'] == 'call':
-            return factor['factorType'] + ": " + factor['profile']['phoneNumber']
+            return factor['factorType'] + ": " + factor['profile'][
+                'phoneNumber']
         elif factor['factorType'] == 'token:software:totp':
-            return factor['factorType'] + "( " + factor['provider'] + " ) : " + factor['profile']['credentialId']
+            return factor['factorType'] + "( " + factor[
+                'provider'] + " ) : " + factor['profile']['credentialId']
         elif factor['factorType'] == 'token':
-            return factor['factorType'] + ": " + factor['profile']['credentialId']
+            return factor['factorType'] + ": " + factor['profile'][
+                'credentialId']
         else:
             return ("Unknown MFA type: " + factor['factorType'])

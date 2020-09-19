@@ -11,7 +11,6 @@ from botocore.exceptions import ClientError
 
 class AwsAuth():
     """ Methods to support AWS authentication using STS """
-
     def __init__(self, profile, okta_profile, verbose, logger):
         home_dir = os.path.expanduser('~')
         self.creds_dir = home_dir + "/.aws"
@@ -28,7 +27,6 @@ class AwsAuth():
         if parser.has_option(okta_profile, 'role'):
             self.role = parser.get(okta_profile, 'role')
             self.logger.debug("Setting AWS role to %s" % self.role)
-
 
     def choose_aws_role(self, assertion):
         """ Choose AWS role from SAML assertion """
@@ -52,7 +50,11 @@ of roles assigned to you.""" % self.role)
         return roles[role_choice]
 
     @staticmethod
-    def get_sts_token(role_arn, principal_arn, assertion, duration=None, logger=None):
+    def get_sts_token(role_arn,
+                      principal_arn,
+                      assertion,
+                      duration=None,
+                      logger=None):
         """ Gets a token from AWS STS """
 
         # Connect to the GovCloud STS endpoint if a GovCloud ARN is found.
@@ -66,13 +68,12 @@ of roles assigned to you.""" % self.role)
             response = sts.assume_role_with_saml(RoleArn=role_arn,
                                                  PrincipalArn=principal_arn,
                                                  SAMLAssertion=assertion,
-                                                 DurationSeconds=duration or 3600)
+                                                 DurationSeconds=duration
+                                                 or 3600)
         except ClientError as ex:
             if logger:
-                logger.error(
-                    "Could not retrieve credentials: %s" % 
-                    ex.response['Error']['Message']
-                )
+                logger.error("Could not retrieve credentials: %s" %
+                             ex.response['Error']['Message'])
                 exit(-1)
             else:
                 raise
@@ -90,15 +91,18 @@ of roles assigned to you.""" % self.role)
         parser.read(self.creds_file)
 
         if not os.path.exists(self.creds_dir):
-            self.logger.info("AWS credentials path does not exist. Not checking.")
+            self.logger.info(
+                "AWS credentials path does not exist. Not checking.")
             return False
 
         elif not os.path.isfile(self.creds_file):
-            self.logger.info("AWS credentials file does not exist. Not checking.")
+            self.logger.info(
+                "AWS credentials file does not exist. Not checking.")
             return False
 
         elif not parser.has_section(profile):
-            self.logger.info("No existing credentials found. Requesting new credentials.")
+            self.logger.info(
+                "No existing credentials found. Requesting new credentials.")
             return False
 
         session = boto3.Session(profile_name=profile)
@@ -108,13 +112,16 @@ of roles assigned to you.""" % self.role)
 
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'ExpiredToken':
-                self.logger.info("Temporary credentials have expired. Requesting new credentials.")
+                self.logger.info(
+                    "Temporary credentials have expired. Requesting new credentials."
+                )
                 return False
 
         self.logger.info("STS credentials are valid. Nothing to do.")
         return True
 
-    def write_sts_token(self, profile, access_key_id, secret_access_key, session_token):
+    def write_sts_token(self, profile, access_key_id, secret_access_key,
+                        session_token):
         """ Writes STS auth information to credentials file """
         if not os.path.exists(self.creds_dir):
             os.makedirs(self.creds_dir)
@@ -132,8 +139,10 @@ of roles assigned to you.""" % self.role)
 
         with open(self.creds_file, 'w+') as configfile:
             config.write(configfile)
-        self.logger.info("Temporary credentials written to profile: %s" % profile)
-        self.logger.info("Invoke using: aws --profile %s <service> <command>" % profile)
+        self.logger.info("Temporary credentials written to profile: %s" %
+                         profile)
+        self.logger.info("Invoke using: aws --profile %s <service> <command>" %
+                         profile)
 
     @staticmethod
     def __extract_available_roles_from(assertion):
@@ -142,10 +151,13 @@ of roles assigned to you.""" % self.role)
         roles = []
         role_tuple = namedtuple("RoleTuple", ["principal_arn", "role_arn"])
         root = ET.fromstring(base64.b64decode(assertion))
-        for saml2attribute in root.iter('{urn:oasis:names:tc:SAML:2.0:assertion}Attribute'):
+        for saml2attribute in root.iter(
+                '{urn:oasis:names:tc:SAML:2.0:assertion}Attribute'):
             if saml2attribute.get('Name') == aws_attribute_role:
-                for saml2attributevalue in saml2attribute.iter(attribute_value_urn):
-                    roles.append(role_tuple(*saml2attributevalue.text.split(',')))
+                for saml2attributevalue in saml2attribute.iter(
+                        attribute_value_urn):
+                    roles.append(
+                        role_tuple(*saml2attributevalue.text.split(',')))
         return roles
 
     @staticmethod
@@ -156,5 +168,6 @@ of roles assigned to you.""" % self.role)
         return options
 
     def __find_predefined_role_from(self, roles):
-        found_roles = filter(lambda role_tuple: role_tuple.role_arn == self.role, roles)
+        found_roles = filter(
+            lambda role_tuple: role_tuple.role_arn == self.role, roles)
         return next(iter(found_roles), None)
